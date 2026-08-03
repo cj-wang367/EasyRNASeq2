@@ -1,0 +1,13 @@
+name: rnaseq-wgcna
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - r-base>=4.3
+  - r-wgcna
+  - r-dynamictreecut
+  - r-tidyverse
+  - r-ggplot2
+  - r-igraph

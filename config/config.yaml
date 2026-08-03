@@ -1,0 +1,216 @@
+# ============================================================
+# EasyRNASeq v2 - 二代有参转录组分析流程配置文件
+# 基于 Snakemake + Conda 构建
+#
+# 使用方法:
+#   方式1 (推荐): 填写下面的必填项，然后运行 bash run.sh
+#   方式2: 完整编辑此文件，然后运行 python run_pipeline.py
+# ============================================================
+
+# ---- 项目信息 ----
+project:
+  id: "My_RNAseq_Project"
+  title: "My RNAseq Project"
+  species: "Arabidopsis_thaliana"
+  kingdom: "Plants"  # All / Archaea / Bacteria / Fungi / Plants / Animals / Virus / Human
+  data_type: "Illumina"  # Illumina / BGI / DNBSGE
+
+# ---- 路径配置 ----
+paths:
+  # === 输入文件（必填） ===
+  sample_info: "config/samples.tsv"       # 样本信息表 (TSV格式)
+  compare_file: "config/contrasts.tsv"    # 比较组文件 (TSV格式，支持多对比较)
+
+  # === 参考基因组 (比对工具需要基因组FASTA+GTF) ===
+  # 方式1 (推荐): 指定 ref_anno_dir，自动识别目录下所有参考文件
+  #   目录结构: ref_anno_dir/
+  #             ├── *.fa / *.fasta          → ref_fa
+  #             ├── *.gtf                    → ref_gtf
+  #             ├── *.pep.fa                 → ref_pep
+  #             ├── hisat2_index/            → HISAT2 索引
+  #             └── star_index/              → STAR 索引
+  # 方式2: 分别指定 ref_fa + ref_gtf
+  ref_anno_dir: null  # [推荐] 参考基因组注释目录 (含预构建索引和注释)
+  ref_fa: null        # 参考基因组 FASTA (如 genome.fa，ref_anno_dir 指定后可留空)
+  ref_gtf: null       # 参考基因组 GTF 注释 (如 genes.gtf，ref_anno_dir 指定后可留空)
+  ref_gff: null       # [可选] 参考基因组 GFF (自动从GTF转换)
+  ref_pep: null       # [可选] 蛋白序列 FASTA (用于蛋白比对注释)
+  ref_transcriptome: null  # [可选] 转录本序列 FASTA (RSEM/Salmon用，留空则从基因组+GTF自动提取)
+
+  # === 输出目录 ===
+  result_dir: "results"
+  tmp_dir: "tmp"
+
+  # === 数据库根目录 (所有数据库统一放在此目录下) ===
+  database_dir: "data/database"
+
+  # === 数据库路径 (留空则从 database_dir 自动推断，设为 "skip" 则跳过) ===
+  eggnog_db: null     # eggNOG 数据库目录 (含 eggnog.db + eggnog_proteins.dmnd)
+                      #   留空自动推断: {database_dir}/eggnog
+  kegg_db: null       # KEGG 数据库路径 (留空自动推断)
+  go_db: null         # GO 数据库 (如 go-basic.obo，留空自动推断)
+  nr_db: null         # NR 蛋白数据库 (如 nr.fasta，暂时仅 eggNOG 注释使用)
+  uniprot_db: null    # UniProt/Swiss-Prot 数据库 (暂时仅 eggNOG 注释使用)
+  pfam_db: null       # Pfam 数据库 (暂时仅 eggNOG 注释使用)
+  string_db: null     # STRING PPI 数据库 (用于蛋白互作网络分析)
+  rrna_db: null       # rRNA 参考序列 (如 Silva_138_seqs.fa, 用于rRNA残留评估)
+
+  # === 软件路径 (如果不在 PATH 中，留空则使用 conda 环境) ===
+  hisat2_path: ""
+  star_path: ""
+  samtools_path: ""
+  fastp_path: ""
+  fastqc_path: ""
+  stringtie_path: ""
+  gffcompare_path: ""
+  gffread_path: ""
+
+# ---- 数据预处理参数 ----
+data_preprocess:
+  run: true                      # 是否运行数据预处理
+  bases_data: 6                  # 合同数据量 (G)
+  cut_sample_reads: 50000        # 评估用抽样 reads 数
+  run_rmrRNA: true               # 是否评估 rRNA 比例
+  max_rrna_rate: 5               # 最大 rRNA 比例 (%)
+  run_extract: true              # 是否提取数据提升比对率
+  target_mapped_ratio: 90        # 目标比对率 (%)
+  min_mapped_ratio: 85           # 最低比对率 (%)
+  minmin_mapped_ratio: 50        # 比对率下限 (%)
+  float_percent: 1               # 浮动比例
+  lower_bound_ratio: 0.95        # 最低数据量比例
+  upper_bound_ratio: 1.05        # 最高数据量比例
+
+# ---- 数据清洗参数 ----
+qc:
+  phred: 33                      # 质量编码: 33 或 64
+  fastp_min_len: 30              # 最小 read 长度
+  adapter_r1: null               # R1 adapter 序列 (null = 自动检测)
+  adapter_r2: null               # R2 adapter 序列
+  trim_poly_g: true              # 是否去除 poly-G
+  poly_g_min_len: 10             # poly-G 最小长度
+
+# ---- 比对/定量工具 ----
+# tool 说明:
+#   hisat2  — HISAT2 基因组比对 → BAM → featureCounts/StringTie/RSEM 定量 (全功能)
+#   star    — STAR 基因组比对   → BAM → featureCounts/StringTie/RSEM 定量 (全功能)
+#   salmon  — Salmon 转录本伪比对+定量 (轻量快速, 但无BAM, 部分下游模块不可用)
+#
+# Salmon 模式限制:
+#   ✗ 不产生 BAM 文件
+#   ✗ 比对质控不可用 (geneBody覆盖度/Read分布/Junction饱和度)
+#   ✗ 新转录本发现不可用 (需 StringTie + BAM)
+#   ✗ 可变剪切不可用 (rMATS 需 BAM)
+#   ✗ LncRNA 鉴定不可用 (需新转录本)
+#   ✓ 差异分析 / GO-KEGG富集 / GSEA / WGCNA 可用
+alignment:
+  tool: "hisat2"                 # hisat2 / star / salmon
+  index: null                    # 已有索引路径 (null = 自动构建)
+  hisat2_index_onlyFa: false     # 仅FASTA建索引 (大基因组>3G 自动启用)
+  strand: "unstranded"           # unstranded / firststrand / secondstrand
+  bam_index_tool: "sambamba"     # sambamba 或 samtools
+
+  # HISAT2 资源参数 (64线程机器建议值)
+  hisat2_cpu: 6
+  hisat2_mem_gb: 16
+  hisat2_index_mem_gb: 50
+
+  # STAR 资源参数
+  star_cpu: 6
+  star_mem_gb: 32
+
+# ---- 比对质控参数 ----
+alignment_qc:
+  run_coverage: true             # geneBody 覆盖度
+  run_distribution: true         # Reads 分布
+  run_junction_saturation: true  # Junction 饱和度
+  run_infer_experiment: false    # 链特异性推断
+
+# ---- 新转录本参数 ----
+new_transcript:
+  run: true                      # 是否发现新转录本
+  assemble_tool: "stringtie"     # stringtie 或 scallop2
+  merge_tool: "stringtie"        # stringtie 或 gffcompare
+  orf_tool: "TransDecoder"       # TransDecoder 或 orfipy
+  circl_window: 500000           # Circos 窗口大小
+
+# ---- 表达定量参数 ----
+# 说明: 流程使用基因组比对(HISAT2/STAR) + 基因组GTF 进行定量
+#       featureCounts: 直接统计GTF外显子区域reads
+#       StringTie: 基于GTF指导的转录本组装+定量
+#       RSEM: 需要转录本序列(自动从基因组+GTF提取)
+expression:
+  tool: "featureCounts"          # featureCounts / stringtie / rsem
+  count_norm: "fpkm"             # fpkm 或 tpm
+  run_exon: false                # 是否做外显子水平分析
+
+# ---- 差异分析参数 ----
+diff:
+  fc_calculate_type: 2           # 1=A/B, 2=B/A (compare文件中: 对照 vs 实验, type=2时 FC=实验/对照)
+  diff_pvalue: 0.05              # 显著性阈值
+  logFC: 1                       # 差异倍数阈值 (log2)
+  pOrFDR: "padj"                 # padj 或 pvalue
+  method: "auto"                 # DESeq2 / edgeR / auto (有重复>=2自动用DESeq2)
+  dispersion: 0.05               # edgeR 无重复时的 dispersion
+  batch_effect: false            # 是否做批次效应校正 (需在sample_info中提供batch列)
+
+# ---- 富集分析参数 ----
+enrich:
+  run_go: true                   # GO 富集
+  run_kegg: true                 # KEGG 富集
+  run_gsea: true                 # GSEA
+  run_gsva: false                # GSVA
+  run_reactome: false            # Reactome
+  run_ppi: false                 # PPI 网络 (需 STRING 数据库)
+  enrich_plot_x: "rich_factor"   # rich_factor / gene_ratio
+  enrich_plot_p: "pvalue"        # pvalue / padj
+  kegg_org: null                 # KEGG 物种简写 (hsa/mmu/ath/dme/sce/cel/dre/rno/osa/... 留空自动推断)
+  ppi_score_threshold: 400       # STRING 互作得分阈值 (0-1000)
+
+# ---- 可变剪切参数 ----
+alternative_splicing:
+  run: true                      # 是否运行 rMATS
+  read_length: 150               # reads 长度
+
+# ---- LncRNA 参数 ----
+lncrna:
+  run: true                      # 是否鉴定 LncRNA
+  run_de: true                   # 是否做 lncRNA 差异
+  run_target: true               # 是否预测靶基因
+  run_enrich: false              # 是否做靶基因富集
+  cis_window: 100000             # cis 靶基因窗口 (bp)
+
+# ---- WGCNA 参数 ----
+wgcna:
+  run: false                     # 是否运行 WGCNA (计算量大, 默认关闭)
+  power: 9                       # 软阈值幂
+  min_module_size: 100           # 最小模块基因数
+  merge_cut_height: 0.25         # 模块合并高度
+  line: 0.85                     # 样本聚类线
+
+# ---- Salmon 参数 (仅 ALIGN_TOOL=salmon 时生效) ----
+salmon:
+  kmer_len: 31                   # k-mer 长度 (推荐: >=31 for 75+bp reads)
+  libtype: "A"                   # 文库类型: A=自动检测 / ISR / ISF / etc.
+  gc_bias: true                  # GC 偏差校正
+  seq_bias: true                 # 序列特异性偏差校正
+  validate_mappings: true        # 验证比对 (推荐开启)
+
+# ---- 变异检测参数 ----
+variation:
+  run: false                     # 是否运行 GATK
+  maf: 0.05                      # 最小等位基因频率
+  max_missing: 0.75              # 最大缺失率
+
+# ---- 报告参数 ----
+report:
+  run: false                     # 是否生成报告 (需额外模板)
+  language: "cn"                 # cn / en
+  company: "cn"                  # cn / hk / us / no
+
+# ---- 运行参数 ----
+runtime:
+  max_jobs: 8                    # 最大并发任务数 (64线程机器推荐≤8)
+  latancy_wait: 60               # 文件等待时间 (秒)
+  use_conda: true                # 是否使用 conda 环境
+  cluster: null                  # 集群提交命令 (null = 本地运行)
+  # 例如: "qsub -pe smp {threads} -l mem={resources.mem_mb}M"

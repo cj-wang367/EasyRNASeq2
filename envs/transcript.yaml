@@ -1,0 +1,14 @@
+name: rnaseq-transcript
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - stringtie=2.2.1
+  - gffcompare=0.12.6
+  - gffread=0.12.7
+  - transdecoder=5.7.1
+  - bedtools=2.31.1
+  - seqkit=2.9.0
+  - agat>=1.4

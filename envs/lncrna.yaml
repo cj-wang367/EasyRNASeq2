@@ -1,0 +1,13 @@
+name: rnaseq-lncrna
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - cpc2=1.0.1
+  - bedtools=2.31.1
+  - seqkit=2.9.0
+  - gffread=0.12.7
+  - seqtk=1.4
+  # PLEK 需要从 GitHub 安装: https://github.com/liambai/PLEK

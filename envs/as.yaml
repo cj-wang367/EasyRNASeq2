@@ -1,0 +1,11 @@
+name: rnaseq-as
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - rmats>=4.3
+  - rmats2sashimiplot>=2.0
+  - pandas>=2.0
+  - openpyxl>=3.0

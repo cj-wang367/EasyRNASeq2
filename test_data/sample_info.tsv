@@ -1,0 +1,21 @@
+# ============================================================
+# 样本信息表 — 日本水稻 (Japanese rice) 测试数据
+# 格式: TAB 分隔
+#
+# 列说明:
+#   group : 分组名 (Control / Treat)
+#   sample: 样本名 (唯一)
+#   ngs   : 测序数据目录路径 (目录下含 *R1*.fq.gz 和 *R2*.fq.gz)
+#   batch : [可选] 批次编号
+#
+# 使用: ./EasyRNASeq -meta sample_info.tsv -compare compare.tsv ...
+# ============================================================
+group	sample	ngs	batch
+Control	HCK2	./test_data	1
+Control	HCK3	./test_data	1
+Control	HCK4	./test_data	1
+Control	HCK6	./test_data	1
+Treat	HT1	./test_data	1
+Treat	HT2	./test_data	1
+Treat	HT4	./test_data	1
+Treat	HT6	./test_data	1

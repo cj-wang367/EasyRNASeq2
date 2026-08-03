@@ -1,0 +1,31 @@
+#!/bin/bash
+# ============================================================
+# EasyRNASeq v2 - Snakemake Profile (本地运行)
+# ============================================================
+
+# 核心数
+cores: 20
+
+# 使用 conda
+use-conda: true
+conda-frontend: mamba
+
+# 失败重试
+restart-times: 1
+
+# 延迟等待
+latency-wait: 60
+
+# 资源
+default-resources:
+  - mem_mb=4000
+  - threads=1
+
+# 打印 shell 命令
+printshellcmds: true
+
+# 错误时继续
+keep-going: false
+
+# 重新运行未完成
+rerun-incomplete: true

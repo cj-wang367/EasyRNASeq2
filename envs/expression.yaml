@@ -1,0 +1,15 @@
+name: rnaseq-expression
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pandas
+  - subread=2.0.6
+  - rsem=1.3.3
+  - r-base>=4.3
+  - bioconductor-edger
+  - r-tidyverse
+  - r-pheatmap
+  - r-ggrepel

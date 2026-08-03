@@ -1,0 +1,16 @@
+name: rnaseq-report
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - r-base>=4.3
+  - r-rmarkdown
+  - r-knitr
+  - r-plotly
+  - r-dt
+  - r-flexdashboard
+  - r-bookdown
+  - pandoc>=3.1
+  - r-htmlwidgets

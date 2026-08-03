@@ -1,0 +1,19 @@
+# ============================================================
+# 样本信息表模板
+#
+# 列说明:
+#   group : 分组名 (同一处理的生物学重复用相同组名)
+#   sample: 样本名 (唯一)
+#   ngs   : 测序数据目录路径 (目录下包含 *R1*.fq.gz 和 *R2*.fq.gz)
+#   batch : [可选] 批次编号 (用于批次效应校正, 同批次填相同数字)
+#
+# 格式: TAB 分隔
+# 使用方法: 删除示例行的 # 注释符, 替换为你的数据
+# ============================================================
+group	sample	ngs	batch
+#WT	WT_1	/path/to/rawdata/WT_1	1
+#WT	WT_2	/path/to/rawdata/WT_2	1
+#WT	WT_3	/path/to/rawdata/WT_3	2
+#Treat	T_1	/path/to/rawdata/T_1	1
+#Treat	T_2	/path/to/rawdata/T_2	2
+#Treat	T_3	/path/to/rawdata/T_3	2
